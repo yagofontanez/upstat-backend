@@ -35,6 +35,7 @@ import {
   subscribe,
   unsubscribe,
 } from "../controllers/push.controller";
+import { db } from "../config/database";
 
 const router = Router();
 
@@ -83,5 +84,35 @@ router.post("/push/unsubscribe", authMiddleware, unsubscribe);
 
 // Onboarding
 router.post("/auth/onboarding/complete", authMiddleware, completeOnboarding);
+
+// Widget - Public route
+router.get("/widget/:slug", async (req, res) => {
+  const { slug } = req.params;
+
+  const pageRes = await db.query("SELECT * FROM status_pages WHERE slug = $1", [
+    slug,
+  ]);
+
+  if (pageRes.rows.length === 0)
+    return res.status(404).json({ error: "Not found" });
+
+  const page = pageRes.rows[0];
+
+  const monitorsRes = await db.query(
+    `SELECT m.status FROM monitors m
+     JOIN status_page_monitors spm ON spm.monitor_id = m.id
+     WHERE spm.page_id = $1 AND m.is_active = true`,
+    [page.id],
+  );
+
+  const monitors = monitorsRes.rows;
+  const total = monitors.length;
+  const down = monitors.filter((m) => m.status === "down").length;
+  const overall =
+    down === 0 ? "operational" : down === total ? "down" : "degraded";
+
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  return res.json({ overall, down, total, slug, title: page.title });
+});
 
 export default router;
