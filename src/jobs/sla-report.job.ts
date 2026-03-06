@@ -17,10 +17,10 @@ export function startSLAReportJob() {
     try {
       const { rows: users } = await db.query(
         `SELECT DISTINCT u.id, u.email, u.name
-   FROM users u
-   JOIN monitors m ON m.user_id = u.id
-   WHERE m.is_active = true
-   AND u.plan = 'pro'`,
+         FROM users u
+         JOIN monitors m ON m.user_id = u.id
+         WHERE m.is_active = true
+         AND u.plan = 'pro'`,
       );
 
       console.log(`[sla-report] ${users.length} user(s) to notify`);

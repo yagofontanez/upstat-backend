@@ -11,10 +11,10 @@ export function startSSLCheckJob() {
       const { rows: monitors } = await db.query(
         `SELECT m.id, m.name, m.url, m.ssl_days_remaining,
           u.id as user_id, u.email, u.name as user_name
-         FROM monitors m
-         JOIN users u ON u.id = m.user_id
-         WHERE m.is_active = true
-         AND m.url LIKE 'https://%'`,
+          FROM monitors m
+          JOIN users u ON u.id = m.user_id
+          WHERE m.is_active = true
+          AND m.url LIKE 'https://%'`,
       );
 
       for (const monitor of monitors) {

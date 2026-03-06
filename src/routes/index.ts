@@ -37,6 +37,12 @@ import {
   unsubscribe,
 } from "../controllers/push.controller";
 import { db } from "../config/database";
+import {
+  addDependency,
+  getMyDependencies,
+  getServices,
+  removeDependency,
+} from "../controllers/dependency.controller";
 
 const router = Router();
 
@@ -86,6 +92,12 @@ router.post("/push/unsubscribe", authMiddleware, unsubscribe);
 
 // Onboarding
 router.post("/auth/onboarding/complete", authMiddleware, completeOnboarding);
+
+// Dependency
+router.get("/dependencies/services", authMiddleware, getServices);
+router.get("/dependencies/my", authMiddleware, getMyDependencies);
+router.post("/dependencies/:serviceId", authMiddleware, addDependency);
+router.delete("/dependencies/:serviceId", authMiddleware, removeDependency);
 
 // Widget - Public route
 router.get("/widget/:slug", async (req, res) => {
