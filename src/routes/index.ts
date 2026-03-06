@@ -16,6 +16,7 @@ import {
   getMonitorUptimeHistory,
   toggleMonitor,
   pingMonitorNow,
+  exportMonitorPings,
 } from "../controllers/monitors.controller";
 import {
   getPublicPage,
@@ -56,6 +57,7 @@ router.get(
 );
 router.patch("/monitors/:id/toggle", authMiddleware, toggleMonitor);
 router.post("/monitors/:id/ping", authMiddleware, pingMonitorNow);
+router.get("/monitors/:id/export", authMiddleware, exportMonitorPings);
 
 // Page (authenticated)
 router.get("/page", authMiddleware, getMyPage);

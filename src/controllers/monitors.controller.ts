@@ -340,3 +340,50 @@ export async function pingMonitorNow(req: Request, res: Response) {
     return res.status(500).json({ error: "Erro interno do servidor" });
   }
 }
+
+export async function exportMonitorPings(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+
+    const { rows: monitors } = await db.query(
+      "SELECT * FROM monitors WHERE id = $1 AND user_id = $2",
+      [id, req.user!.id],
+    );
+
+    if (monitors.length === 0) {
+      return res.status(404).json({ error: "Monitor não encontrado" });
+    }
+
+    if (req.user!.plan !== "pro") {
+      return res
+        .status(403)
+        .json({ error: "Recurso disponível apenas no plano Pro" });
+    }
+
+    const { rows: pings } = await db.query(
+      `SELECT status, status_code, latency_ms, checked_at
+       FROM pings
+       WHERE monitor_id = $1
+       ORDER BY checked_at DESC`,
+      [id],
+    );
+
+    const csv = [
+      "Data,Status,Código HTTP,Latência (ms)",
+      ...pings.map(
+        (p) =>
+          `${new Date(p.checked_at).toISOString()},${p.status},${p.status_code ?? ""},${p.latency_ms ?? ""}`,
+      ),
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="upstat-${monitors[0].name}-${Date.now()}.csv"`,
+    );
+    return res.send(csv);
+  } catch (err) {
+    console.error("Export error:", err);
+    return res.status(500).json({ error: "Erro ao exportar" });
+  }
+}
