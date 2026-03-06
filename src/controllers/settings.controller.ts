@@ -53,3 +53,23 @@ export async function updateNotifications(req: Request, res: Response) {
     return res.status(500).json({ error: "Erro interno do servidor" });
   }
 }
+
+export async function updateSlackSettings(req: Request, res: Response) {
+  try {
+    const { slack_webhook_url, slack_enabled } = req.body;
+
+    await db.query(
+      `UPDATE notifications 
+       SET slack_webhook_url = $1, slack_enabled = $2 
+       WHERE user_id = $3`,
+      [slack_webhook_url || null, slack_enabled, req.user!.id],
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Slack settings error:", err);
+    return res
+      .status(500)
+      .json({ error: "Erro ao salvar configurações do Slack" });
+  }
+}

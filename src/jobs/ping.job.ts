@@ -6,6 +6,7 @@ import {
 } from "../services/notification.service";
 import { sendPushNotification } from "../services/push.service";
 import { checkTCP } from "../services/tcp.service";
+import { sendSlackAlert } from "../services/slack.service";
 
 async function checkMonitor(monitor: {
   id: string;
@@ -72,10 +73,15 @@ async function checkMonitor(monitor: {
   const newStatus = pingStatus === "up" ? "up" : "down";
 
   if (monitor.status !== "pending" && monitor.status !== newStatus) {
+    const { rows: notifRows } = await db.query(
+      `SELECT slack_enabled, slack_webhook_url FROM notifications WHERE user_id = $1`,
+      [monitor.user_id],
+    );
+    const notif = notifRows[0];
+
     if (newStatus === "down") {
       await db.query(
-        `INSERT INTO incidents (id, monitor_id)
-         VALUES (uuid_generate_v4(), $1)`,
+        `INSERT INTO incidents (id, monitor_id) VALUES (uuid_generate_v4(), $1)`,
         [monitor.id],
       );
       await sendDownAlert(monitor.user_id, monitor.id, monitor.url);
@@ -85,12 +91,18 @@ async function checkMonitor(monitor: {
         `${monitor.url} está offline`,
         `${process.env.FRONTEND_URL}/monitors/${monitor.id}`,
       );
+
+      if (notif?.slack_enabled && notif?.slack_webhook_url) {
+        await sendSlackAlert(
+          notif.slack_webhook_url,
+          monitor.url,
+          monitor.url,
+          "down",
+        );
+      }
     } else {
       await db.query(
-        `UPDATE incidents
-         SET resolved_at = NOW(),
-             duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000
-         WHERE monitor_id = $1 AND resolved_at IS NULL`,
+        `UPDATE incidents SET resolved_at = NOW(), duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 WHERE monitor_id = $1 AND resolved_at IS NULL`,
         [monitor.id],
       );
       await sendRecoveryAlert(monitor.user_id, monitor.id, monitor.url);
@@ -100,6 +112,15 @@ async function checkMonitor(monitor: {
         `${monitor.url} voltou ao ar`,
         `${process.env.FRONTEND_URL}/monitors/${monitor.id}`,
       );
+
+      if (notif?.slack_enabled && notif?.slack_webhook_url) {
+        await sendSlackAlert(
+          notif.slack_webhook_url,
+          monitor.url,
+          monitor.url,
+          "up",
+        );
+      }
     }
   }
 

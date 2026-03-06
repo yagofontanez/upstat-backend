@@ -13,6 +13,7 @@ const createMonitorSchema = z.object({
   keyword: z.string().max(100).optional(),
   monitor_type: z.enum(["http", "tcp"]).optional(),
   tcp_port: z.number().int().min(1).max(65535).optional(),
+  sla_target: z.number().min(0).max(100).optional(),
 });
 
 const PLAN_LIMITS = {
@@ -56,7 +57,8 @@ export async function createMonitor(req: Request, res: Response) {
     return res.status(400).json({ error: result.error.issues[0].message });
   }
 
-  const { name, url, keyword, monitor_type, tcp_port } = result.data;
+  const { name, url, keyword, monitor_type, tcp_port, sla_target } =
+    result.data;
   const plan = req.user!.plan;
   const limit = PLAN_LIMITS[plan].monitors;
 
@@ -75,8 +77,8 @@ export async function createMonitor(req: Request, res: Response) {
     const interval = PLAN_LIMITS[plan].interval;
 
     const { rows } = await db.query(
-      `INSERT INTO monitors (id, user_id, name, url, interval_minutes, keyword, monitor_type, tcp_port)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO monitors (id, user_id, name, url, interval_minutes, keyword, monitor_type, tcp_port, sla_target)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
       [
         uuidv4(),
@@ -87,6 +89,7 @@ export async function createMonitor(req: Request, res: Response) {
         keyword || null,
         monitor_type || "http",
         tcp_port || null,
+        sla_target || 99.9,
       ],
     );
 

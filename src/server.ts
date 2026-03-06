@@ -7,6 +7,7 @@ import { startPingJob } from "./jobs/ping.job";
 import { startWeeklyReportJob } from "./jobs/weekly-report.job";
 import { startSSLCheckJob } from "./jobs/ssl-check.job";
 import { startDNSCheckJob } from "./jobs/dns-check.job";
+import { startSLAReportJob } from "./jobs/sla-report.job";
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ async function bootstrap() {
     startWeeklyReportJob();
     startSSLCheckJob();
     startDNSCheckJob();
+    startSLAReportJob();
 
     app.listen(PORT, () => {
       console.log(`UpStat API running on http://localhost:${PORT}`);

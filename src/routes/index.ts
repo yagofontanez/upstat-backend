@@ -27,6 +27,7 @@ import {
 import {
   getNotifications,
   updateNotifications,
+  updateSlackSettings,
 } from "../controllers/settings.controller";
 import { upgrade, webhook } from "../controllers/billing.controller";
 import { getBadge } from "../controllers/badge.controller";
@@ -72,6 +73,7 @@ router.get("/badge/:slug", getBadge);
 // Settings
 router.get("/settings/notifications", authMiddleware, getNotifications);
 router.put("/settings/notifications", authMiddleware, updateNotifications);
+router.put("/settings/slack", authMiddleware, updateSlackSettings);
 
 // Billing
 router.post("/billing/upgrade", authMiddleware, upgrade);
