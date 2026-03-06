@@ -5,6 +5,7 @@ import {
   sendRecoveryAlert,
 } from "../services/notification.service";
 import { sendPushNotification } from "../services/push.service";
+import { checkTCP } from "../services/tcp.service";
 
 async function checkMonitor(monitor: {
   id: string;
@@ -13,44 +14,53 @@ async function checkMonitor(monitor: {
   user_id: string;
   interval_minutes: number;
   keyword: string;
+  monitor_type: string;
+  tcp_port: number | null;
 }) {
   const start = Date.now();
   let pingStatus: "up" | "down" | "timeout" = "down";
   let statusCode: number | null = null;
   let latency: number | null = null;
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
+  if (monitor.monitor_type === "tcp" && monitor.tcp_port) {
+    const hostname = new URL(monitor.url).hostname;
+    const tcp = await checkTCP(hostname, monitor.tcp_port);
+    latency = tcp.latency;
+    pingStatus = tcp.alive ? "up" : "down";
+  } else {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
 
-    const response = await fetch(monitor.url, {
-      method: "GET",
-      signal: controller.signal,
-      headers: { "User-Agent": "UpStat-Monitor/1.0" },
-    });
+      const response = await fetch(monitor.url, {
+        method: "GET",
+        signal: controller.signal,
+        headers: { "User-Agent": "UpStat-Monitor/1.0" },
+      });
 
-    clearTimeout(timeout);
+      clearTimeout(timeout);
 
-    latency = Date.now() - start;
-    statusCode = response.status;
-    pingStatus = response.ok ? "up" : "down";
+      latency = Date.now() - start;
+      statusCode = response.status;
+      pingStatus = response.ok ? "up" : "down";
 
-    if (pingStatus === "up" && monitor.keyword) {
-      const body = await response.text();
-      if (!body.includes(monitor.keyword)) {
-        pingStatus = "down";
-        console.log(
-          `[ping-job] Keyword "${monitor.keyword}" não encontrada em ${monitor.url}`,
-        );
+      if (pingStatus === "up" && monitor.keyword) {
+        const body = await response.text();
+        if (!body.includes(monitor.keyword)) {
+          pingStatus = "down";
+          console.log(
+            `[ping-job] Keyword "${monitor.keyword}" não encontrada em ${monitor.url}`,
+          );
+        }
       }
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        pingStatus = "timeout";
+      } else {
+        pingStatus = "down";
+      }
+      latency = Date.now() - start;
     }
-  } catch (err: any) {
-    if (err.name === "AbortError") {
-      pingStatus = "timeout";
-    } else {
-      pingStatus = "down";
-    }
-    latency = Date.now() - start;
   }
 
   await db.query(
@@ -103,7 +113,7 @@ export function startPingJob() {
   cron.schedule("* * * * *", async () => {
     try {
       const { rows: monitors } = await db.query(`
-        SELECT m.id, m.url, m.status, m.user_id, m.interval_minutes
+        SELECT m.id, m.url, m.status, m.user_id, m.interval_minutes, m.keyword, m.monitor_type, m.tcp_port
         FROM monitors m
         WHERE m.is_active = true
         AND (
