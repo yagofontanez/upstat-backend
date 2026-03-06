@@ -5,6 +5,7 @@ import {
   login,
   me,
   refreshUser,
+  completeOnboarding,
 } from "../controllers/auth.controller";
 import {
   listMonitors,
@@ -79,5 +80,8 @@ router.post("/billing/webhook", webhook);
 router.get("/push/vapid-key", authMiddleware, getVapidKey);
 router.post("/push/subscribe", authMiddleware, subscribe);
 router.post("/push/unsubscribe", authMiddleware, unsubscribe);
+
+// Onboarding
+router.post("/auth/onboarding/complete", authMiddleware, completeOnboarding);
 
 export default router;

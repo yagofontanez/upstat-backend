@@ -100,7 +100,7 @@ export async function login(req: Request, res: Response) {
 
   try {
     const { rows } = await db.query(
-      "SELECT id, name, email, password, plan FROM users WHERE email = $1",
+      "SELECT id, name, email, password, plan, onboarding_completed FROM users WHERE email = $1",
       [email],
     );
 
@@ -128,6 +128,7 @@ export async function login(req: Request, res: Response) {
         name: user.name,
         email: user.email,
         plan: user.plan,
+        onboarding_completed: user.onboarding_completed,
       },
     });
   } catch (err) {
@@ -139,7 +140,7 @@ export async function login(req: Request, res: Response) {
 export async function me(req: Request, res: Response) {
   try {
     const { rows } = await db.query(
-      "SELECT id, name, email, plan, created_at FROM users WHERE id = $1",
+      "SELECT id, name, email, plan, onboarding_completed, created_at FROM users WHERE id = $1",
       [req.user!.id],
     );
 
@@ -157,7 +158,7 @@ export async function me(req: Request, res: Response) {
 export async function refreshUser(req: Request, res: Response) {
   try {
     const { rows } = await db.query(
-      "SELECT id, email, plan FROM users WHERE id = $1",
+      "SELECT id, email, plan, onboarding_completed FROM users WHERE id = $1",
       [req.user!.id],
     );
     const user = rows[0];
@@ -170,5 +171,17 @@ export async function refreshUser(req: Request, res: Response) {
   } catch (err) {
     console.error("Refresh user error:", err);
     return res.status(500).json({ error: "Erro interno do servidor" });
+  }
+}
+
+export async function completeOnboarding(req: Request, res: Response) {
+  try {
+    await db.query(
+      "UPDATE users SET onboarding_completed = true WHERE id = $1",
+      [req.user!.id],
+    );
+    return res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ error: "Erro ao completar onboarding" });
   }
 }
