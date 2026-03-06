@@ -27,6 +27,7 @@ import {
   updateNotifications,
 } from "../controllers/settings.controller";
 import { upgrade, webhook } from "../controllers/billing.controller";
+import { getBadge } from "../controllers/badge.controller";
 
 const router = Router();
 
@@ -57,6 +58,7 @@ router.put("/page", authMiddleware, updatePage);
 
 // Public page
 router.get("/status/:slug", getPublicPage);
+router.get("/badge/:slug", getBadge);
 
 // Settings
 router.get("/settings/notifications", authMiddleware, getNotifications);

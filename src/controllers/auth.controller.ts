@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 import { db } from "../config/database";
+import { sendWelcomeEmail } from "../services/notification.service";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Nome muito curto"),
@@ -75,6 +76,8 @@ export async function register(req: Request, res: Response) {
       process.env.JWT_SECRET!,
       { expiresIn: "7d" },
     );
+
+    sendWelcomeEmail(email, name, slug).catch(console.error);
 
     return res.status(201).json({
       token,
