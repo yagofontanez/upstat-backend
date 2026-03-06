@@ -10,6 +10,7 @@ import {
 const createMonitorSchema = z.object({
   name: z.string().min(1, "Nome obrigatório").max(100),
   url: z.string().url("URL inválida"),
+  keyword: z.string().max(100).optional(),
 });
 
 const PLAN_LIMITS = {
@@ -53,7 +54,7 @@ export async function createMonitor(req: Request, res: Response) {
     return res.status(400).json({ error: result.error.issues[0].message });
   }
 
-  const { name, url } = result.data;
+  const { name, url, keyword } = result.data;
   const plan = req.user!.plan;
   const limit = PLAN_LIMITS[plan].monitors;
 
@@ -64,8 +65,6 @@ export async function createMonitor(req: Request, res: Response) {
     );
 
     if (parseInt(existing[0].count) >= limit) {
-      console.log(plan, "plan");
-      console.log(parseInt(existing[0].count), "parseInt(existing[0].count)");
       return res.status(403).json({
         error: `Limite de monitores atingido para o plano ${plan}. Faça upgrade para adicionar mais.`,
       });
@@ -74,10 +73,10 @@ export async function createMonitor(req: Request, res: Response) {
     const interval = PLAN_LIMITS[plan].interval;
 
     const { rows } = await db.query(
-      `INSERT INTO monitors (id, user_id, name, url, interval_minutes)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [uuidv4(), req.user!.id, name, url, interval],
+      `INSERT INTO monitors (id, user_id, name, url, interval_minutes, keyword)
+   VALUES ($1, $2, $3, $4, $5, $6)
+   RETURNING *`,
+      [uuidv4(), req.user!.id, name, url, interval, keyword || null],
     );
 
     return res.status(201).json({ monitor: rows[0] });

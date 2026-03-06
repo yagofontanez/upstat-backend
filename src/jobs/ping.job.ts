@@ -10,6 +10,8 @@ async function checkMonitor(monitor: {
   url: string;
   status: string;
   user_id: string;
+  interval_minutes: number;
+  keyword: string;
 }) {
   const start = Date.now();
   let pingStatus: "up" | "down" | "timeout" = "down";
@@ -31,6 +33,16 @@ async function checkMonitor(monitor: {
     latency = Date.now() - start;
     statusCode = response.status;
     pingStatus = response.ok ? "up" : "down";
+
+    if (pingStatus === "up" && monitor.keyword) {
+      const body = await response.text();
+      if (!body.includes(monitor.keyword)) {
+        pingStatus = "down";
+        console.log(
+          `[ping-job] Keyword "${monitor.keyword}" não encontrada em ${monitor.url}`,
+        );
+      }
+    }
   } catch (err: any) {
     if (err.name === "AbortError") {
       pingStatus = "timeout";
