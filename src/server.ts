@@ -4,6 +4,8 @@ import dotenv from "dotenv";
 import { db } from "./config/database";
 import routes from "./routes";
 import { startPingJob } from "./jobs/ping.job";
+import { startWeeklyReportJob } from "./jobs/weekly-report.job";
+import { startSSLCheckJob } from "./jobs/ssl-check.job";
 
 dotenv.config();
 
@@ -31,6 +33,8 @@ async function bootstrap() {
     console.log("Database connected.");
 
     startPingJob();
+    startWeeklyReportJob();
+    startSSLCheckJob();
 
     app.listen(PORT, () => {
       console.log(`UpStat API running on http://localhost:${PORT}`);

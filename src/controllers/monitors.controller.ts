@@ -13,7 +13,7 @@ const createMonitorSchema = z.object({
 });
 
 const PLAN_LIMITS = {
-  free: { monitors: 1, interval: 5, history_days: 7 },
+  free: { monitors: 3, interval: 5, history_days: 7 },
   pro: { monitors: 999, interval: 1, history_days: 90 },
 };
 

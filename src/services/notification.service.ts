@@ -202,3 +202,220 @@ export async function sendWelcomeEmail(
     console.error("[welcome] Erro ao enviar email:", err);
   }
 }
+
+export async function sendWeeklyReport(
+  userEmail: string,
+  userName: string,
+  monitors: {
+    name: string;
+    url: string;
+    uptime: string;
+    avgLatency: number | null;
+    incidents: number;
+  }[],
+) {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    const totalMonitors = monitors.length;
+    const avgUptime =
+      monitors.length > 0
+        ? (
+            monitors.reduce((acc, m) => acc + parseFloat(m.uptime || "0"), 0) /
+            monitors.length
+          ).toFixed(2)
+        : "0";
+
+    const monitorsHtml = monitors
+      .map(
+        (m) => `
+      <tr>
+        <td style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <p style="margin:0 0 4px;font-size:14px;color:#F0F6FC;font-weight:700;">${m.name}</p>
+          <p style="margin:0;font-size:12px;color:#555;">${m.url}</p>
+        </td>
+        <td style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.05);text-align:center;">
+          <span style="font-size:16px;font-weight:700;color:${parseFloat(m.uptime) >= 99 ? "#00D4AA" : parseFloat(m.uptime) >= 95 ? "#F59E0B" : "#EF4444"};">
+            ${m.uptime}%
+          </span>
+        </td>
+        <td style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.05);text-align:center;">
+          <span style="font-size:14px;color:#8B949E;">${m.avgLatency ? `${m.avgLatency}ms` : "—"}</span>
+        </td>
+        <td style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,0.05);text-align:center;">
+          <span style="font-size:14px;color:${m.incidents > 0 ? "#EF4444" : "#00D4AA"};">${m.incidents}</span>
+        </td>
+      </tr>
+    `,
+      )
+      .join("");
+
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to: userEmail,
+      subject: `● UpStat — Relatório semanal (${new Date().toLocaleDateString("pt-BR")})`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;padding:0;background:#060810;font-family:'Courier New',monospace;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center" style="padding:40px 20px;">
+                <table width="600" cellpadding="0" cellspacing="0" style="background:#0D1117;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+                  
+                  <!-- Header -->
+                  <tr>
+                    <td style="padding:40px 48px 32px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                      <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#00D4AA;">● UpStat</p>
+                      <p style="margin:0;font-size:13px;color:#555;letter-spacing:2px;text-transform:uppercase;">relatório semanal</p>
+                    </td>
+                  </tr>
+
+                  <!-- Body -->
+                  <tr>
+                    <td style="padding:48px;">
+                      <p style="margin:0 0 32px;font-size:16px;color:#8B949E;line-height:1.7;">
+                        Olá, ${userName}! Aqui está o resumo da última semana dos seus monitores.
+                      </p>
+
+                      <!-- Summary cards -->
+                      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:40px;">
+                        <tr>
+                          <td width="50%" style="padding-right:8px;">
+                            <div style="background:#161B22;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;text-align:center;">
+                              <p style="margin:0 0 4px;font-size:32px;font-weight:700;color:#00D4AA;">${avgUptime}%</p>
+                              <p style="margin:0;font-size:12px;color:#555;text-transform:uppercase;letter-spacing:2px;">uptime médio</p>
+                            </div>
+                          </td>
+                          <td width="50%" style="padding-left:8px;">
+                            <div style="background:#161B22;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:20px;text-align:center;">
+                              <p style="margin:0 0 4px;font-size:32px;font-weight:700;color:#F0F6FC;">${totalMonitors}</p>
+                              <p style="margin:0;font-size:12px;color:#555;text-transform:uppercase;letter-spacing:2px;">monitores</p>
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <!-- Monitors table -->
+                      <table width="100%" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="padding-bottom:12px;font-size:11px;color:#555;letter-spacing:2px;text-transform:uppercase;">Monitor</td>
+                          <td style="padding-bottom:12px;font-size:11px;color:#555;letter-spacing:2px;text-transform:uppercase;text-align:center;">Uptime</td>
+                          <td style="padding-bottom:12px;font-size:11px;color:#555;letter-spacing:2px;text-transform:uppercase;text-align:center;">Latência</td>
+                          <td style="padding-bottom:12px;font-size:11px;color:#555;letter-spacing:2px;text-transform:uppercase;text-align:center;">Incidentes</td>
+                        </tr>
+                        ${monitorsHtml}
+                      </table>
+
+                      <!-- CTA -->
+                      <div style="margin-top:40px;text-align:center;">
+                        <a href="${process.env.FRONTEND_URL}/dashboard" style="display:inline-block;background:#00D4AA;color:#000;font-family:'Courier New',monospace;font-size:14px;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;">
+                          Ver dashboard completo →
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding:24px 48px;border-top:1px solid rgba(255,255,255,0.06);">
+                      <p style="margin:0;font-size:12px;color:#555;">
+                        ● UpStat — você recebe este email toda segunda-feira<br/>
+                        <a href="${process.env.FRONTEND_URL}" style="color:#00D4AA;text-decoration:none;">${process.env.FRONTEND_URL}</a>
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+    });
+
+    console.log(`[weekly-report] Email enviado para ${userEmail}`);
+  } catch (err) {
+    console.error("[weekly-report] Erro ao enviar relatório:", err);
+  }
+}
+
+export async function sendSSLAlert(
+  userEmail: string,
+  userName: string,
+  monitorName: string,
+  monitorUrl: string,
+  daysRemaining: number,
+) {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    await resend.emails.send({
+      from: process.env.EMAIL_FROM!,
+      to: userEmail,
+      subject: `⚠️ Certificado SSL expirando em ${daysRemaining} dias — ${monitorName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;padding:0;background:#060810;font-family:'Courier New',monospace;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center" style="padding:40px 20px;">
+                <table width="600" cellpadding="0" cellspacing="0" style="background:#0D1117;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;">
+                  
+                  <tr>
+                    <td style="padding:40px 48px 32px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                      <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#00D4AA;">● UpStat</p>
+                      <p style="margin:0;font-size:13px;color:#555;letter-spacing:2px;text-transform:uppercase;">alerta de ssl</p>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:48px;">
+                      <div style="background:#F59E0B11;border:1px solid #F59E0B33;border-radius:12px;padding:20px 24px;margin-bottom:32px;">
+                        <p style="margin:0;font-size:16px;color:#F59E0B;font-weight:700;">⚠️ Certificado SSL expirando em ${daysRemaining} dias</p>
+                      </div>
+
+                      <p style="margin:0 0 24px;font-size:16px;color:#8B949E;line-height:1.7;">
+                        Olá, ${userName}! O certificado SSL do monitor <strong style="color:#F0F6FC;">${monitorName}</strong> vai expirar em <strong style="color:#F59E0B;">${daysRemaining} dias</strong>.
+                      </p>
+
+                      <div style="background:#161B22;border:1px solid rgba(255,255,255,0.06);border-radius:12px;padding:24px;margin-bottom:32px;">
+                        <p style="margin:0 0 8px;font-size:12px;color:#555;letter-spacing:2px;text-transform:uppercase;">monitor</p>
+                        <p style="margin:0 0 4px;font-size:16px;color:#F0F6FC;font-weight:700;">${monitorName}</p>
+                        <p style="margin:0;font-size:14px;color:#555;">${monitorUrl}</p>
+                      </div>
+
+                      <p style="margin:0 0 32px;font-size:14px;color:#8B949E;line-height:1.7;">
+                        Renove o certificado SSL antes que ele expire para evitar que seus usuários vejam avisos de segurança no browser.
+                      </p>
+
+                      <a href="${process.env.FRONTEND_URL}/monitors" style="display:inline-block;background:#F59E0B;color:#000;font-family:'Courier New',monospace;font-size:14px;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;">
+                        Ver monitor →
+                      </a>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td style="padding:24px 48px;border-top:1px solid rgba(255,255,255,0.06);">
+                      <p style="margin:0;font-size:12px;color:#555;">● UpStat — <a href="${process.env.FRONTEND_URL}" style="color:#00D4AA;text-decoration:none;">${process.env.FRONTEND_URL}</a></p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+      `,
+    });
+
+    console.log(
+      `[ssl-alert] Email enviado para ${userEmail} — ${monitorName} expira em ${daysRemaining} dias`,
+    );
+  } catch (err) {
+    console.error("[ssl-alert] Erro ao enviar email:", err);
+  }
+}
