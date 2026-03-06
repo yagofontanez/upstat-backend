@@ -4,6 +4,7 @@ import {
   sendDownAlert,
   sendRecoveryAlert,
 } from "../services/notification.service";
+import { sendPushNotification } from "../services/push.service";
 
 async function checkMonitor(monitor: {
   id: string;
@@ -68,6 +69,12 @@ async function checkMonitor(monitor: {
         [monitor.id],
       );
       await sendDownAlert(monitor.user_id, monitor.id, monitor.url);
+      await sendPushNotification(
+        monitor.user_id,
+        "🔴 Sistema fora do ar",
+        `${monitor.url} está offline`,
+        `${process.env.FRONTEND_URL}/monitors/${monitor.id}`,
+      );
     } else {
       await db.query(
         `UPDATE incidents
@@ -77,6 +84,12 @@ async function checkMonitor(monitor: {
         [monitor.id],
       );
       await sendRecoveryAlert(monitor.user_id, monitor.id, monitor.url);
+      await sendPushNotification(
+        monitor.user_id,
+        "✅ Sistema recuperado",
+        `${monitor.url} voltou ao ar`,
+        `${process.env.FRONTEND_URL}/monitors/${monitor.id}`,
+      );
     }
   }
 

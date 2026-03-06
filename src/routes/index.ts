@@ -28,6 +28,11 @@ import {
 } from "../controllers/settings.controller";
 import { upgrade, webhook } from "../controllers/billing.controller";
 import { getBadge } from "../controllers/badge.controller";
+import {
+  getVapidKey,
+  subscribe,
+  unsubscribe,
+} from "../controllers/push.controller";
 
 const router = Router();
 
@@ -67,5 +72,10 @@ router.put("/settings/notifications", authMiddleware, updateNotifications);
 // Billing
 router.post("/billing/upgrade", authMiddleware, upgrade);
 router.post("/billing/webhook", webhook);
+
+// Push Notifications
+router.get("/push/vapid-key", authMiddleware, getVapidKey);
+router.post("/push/subscribe", authMiddleware, subscribe);
+router.post("/push/unsubscribe", authMiddleware, unsubscribe);
 
 export default router;
