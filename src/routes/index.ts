@@ -18,6 +18,7 @@ import {
   toggleMonitor,
   pingMonitorNow,
   exportMonitorPings,
+  updateMonitor,
 } from "../controllers/monitors.controller";
 import {
   getPublicPage,
@@ -76,6 +77,7 @@ router.get(
 router.patch("/monitors/:id/toggle", authMiddleware, toggleMonitor);
 router.post("/monitors/:id/ping", authMiddleware, pingMonitorNow);
 router.get("/monitors/:id/export", authMiddleware, exportMonitorPings);
+router.put("/monitors/:id", authMiddleware, updateMonitor);
 
 // Page (authenticated)
 router.get("/page", authMiddleware, getMyPage);

@@ -9,7 +9,7 @@ import { checkTCP } from "../services/tcp.service";
 import { sendSlackAlert } from "../services/slack.service";
 import { sendWhatAppDown, sendWhatsAppUp } from "../services/whatsapp.service";
 
-async function checkMonitor(monitor: {
+export async function checkMonitor(monitor: {
   id: string;
   url: string;
   status: string;

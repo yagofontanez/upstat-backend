@@ -6,6 +6,7 @@ import {
   sendDownAlert,
   sendRecoveryAlert,
 } from "../services/notification.service";
+import { checkMonitor } from "../jobs/ping.job";
 
 const createMonitorSchema = z.object({
   name: z.string().min(1, "Nome obrigatório").max(100),
@@ -132,6 +133,8 @@ export async function createMonitor(req: Request, res: Response) {
         );
       }
     }
+
+    checkMonitor(newMonitor).catch(() => {});
 
     return res.status(201).json({ monitor: newMonitor });
   } catch (err) {
@@ -327,12 +330,17 @@ export async function pingMonitorNow(req: Request, res: Response) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(monitor.url, {
+      const headers =
+        typeof monitor.request_headers === "string"
+          ? JSON.parse(monitor.request_headers)
+          : monitor.request_headers || {};
+
+      const response = await fetch(decodeURIComponent(monitor.url), {
         method: monitor.http_method || "GET",
         signal: controller.signal,
         headers: {
           "User-Agent": "UpStat-Monitor/1.0",
-          ...(monitor.request_headers || {}),
+          ...(headers || {}),
         },
         body: ["POST", "PUT", "PATCH"].includes(monitor.http_method)
           ? monitor.request_body
@@ -434,5 +442,65 @@ export async function exportMonitorPings(req: Request, res: Response) {
   } catch (err) {
     console.error("Export error:", err);
     return res.status(500).json({ error: "Erro ao exportar" });
+  }
+}
+
+export async function updateMonitor(req: Request, res: Response) {
+  const result = createMonitorSchema.partial().safeParse(req.body);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error.issues[0].message });
+  }
+
+  const {
+    name,
+    url,
+    keyword,
+    monitor_type,
+    tcp_port,
+    sla_target,
+    http_method,
+    request_body,
+    request_headers,
+  } = result.data;
+
+  try {
+    const { rows } = await db.query(
+      "SELECT id FROM monitors WHERE id = $1 AND user_id = $2",
+      [req.params.id, req.user!.id],
+    );
+    if (rows.length === 0)
+      return res.status(404).json({ error: "Monitor não encontrado" });
+
+    const { rows: updated } = await db.query(
+      `UPDATE monitors SET
+        name = COALESCE($1, name),
+        url = COALESCE($2, url),
+        keyword = COALESCE($3, keyword),
+        monitor_type = COALESCE($4, monitor_type),
+        tcp_port = COALESCE($5, tcp_port),
+        sla_target = COALESCE($6, sla_target),
+        http_method = COALESCE($7, http_method),
+        request_body = COALESCE($8, request_body),
+        request_headers = COALESCE($9, request_headers),
+        updated_at = NOW()
+      WHERE id = $10 RETURNING *`,
+      [
+        name ?? null,
+        url ?? null,
+        keyword ?? null,
+        monitor_type ?? null,
+        tcp_port ?? null,
+        sla_target ?? null,
+        http_method ?? null,
+        request_body ?? null,
+        request_headers ? JSON.stringify(request_headers) : null,
+        req.params.id,
+      ],
+    );
+
+    return res.json({ monitor: updated[0] });
+  } catch (err) {
+    console.error("Update monitor error:", err);
+    return res.status(500).json({ error: "Erro interno do servidor" });
   }
 }
