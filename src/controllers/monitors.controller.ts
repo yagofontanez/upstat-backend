@@ -14,6 +14,11 @@ const createMonitorSchema = z.object({
   monitor_type: z.enum(["http", "tcp"]).optional(),
   tcp_port: z.number().int().min(1).max(65535).optional(),
   sla_target: z.number().min(0).max(100).optional(),
+  http_method: z
+    .enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"])
+    .optional(),
+  request_body: z.string().optional(),
+  request_headers: z.record(z.string(), z.string()).optional(),
 });
 
 const PLAN_LIMITS = {
@@ -57,10 +62,19 @@ export async function createMonitor(req: Request, res: Response) {
     return res.status(400).json({ error: result.error.issues[0].message });
   }
 
-  const { name, url, keyword, monitor_type, tcp_port, sla_target } =
-    result.data;
-  const plan = req.user!.plan;
-  const limit = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS].monitors;
+  const {
+    name,
+    url,
+    keyword,
+    monitor_type,
+    tcp_port,
+    sla_target,
+    http_method,
+    request_body,
+    request_headers,
+  } = result.data;
+  const plan = (req.user!.plan ?? "free") as keyof typeof PLAN_LIMITS;
+  const limit = PLAN_LIMITS[plan].monitors;
 
   try {
     const { rows: existing } = await db.query(
@@ -74,12 +88,12 @@ export async function createMonitor(req: Request, res: Response) {
       });
     }
 
-    const interval = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS].interval;
+    const interval = PLAN_LIMITS[plan].interval;
 
     const { rows: monitorRows } = await db.query(
-      `INSERT INTO monitors (id, user_id, name, url, interval_minutes, keyword, monitor_type, tcp_port, sla_target)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-       RETURNING *`,
+      `INSERT INTO monitors (id, user_id, name, url, interval_minutes, keyword, monitor_type, tcp_port, sla_target, http_method, request_body, request_headers)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        RETURNING *`,
       [
         uuidv4(),
         req.user!.id,
@@ -90,6 +104,9 @@ export async function createMonitor(req: Request, res: Response) {
         monitor_type || "http",
         tcp_port || null,
         sla_target || 99.9,
+        http_method || "GET",
+        request_body || null,
+        request_headers ? JSON.stringify(request_headers) : null,
       ],
     );
 
@@ -116,7 +133,7 @@ export async function createMonitor(req: Request, res: Response) {
       }
     }
 
-    return res.status(201).json({ monitor: newMonitor[0] });
+    return res.status(201).json({ monitor: newMonitor });
   } catch (err) {
     console.error("Create monitor error:", err);
     return res.status(500).json({ error: "Erro interno do servidor" });
@@ -160,8 +177,8 @@ export async function deleteMonitor(req: Request, res: Response) {
 }
 
 export async function getMonitorPings(req: Request, res: Response) {
-  const plan = req.user!.plan;
-  const days = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS].history_days;
+  const plan = (req.user!.plan ?? "free") as keyof typeof PLAN_LIMITS;
+  const days = PLAN_LIMITS[plan].history_days;
 
   try {
     const { rows: monitorRows } = await db.query(
@@ -311,9 +328,15 @@ export async function pingMonitorNow(req: Request, res: Response) {
       const timeout = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(monitor.url, {
-        method: "GET",
+        method: monitor.http_method || "GET",
         signal: controller.signal,
-        headers: { "User-Agent": "UpStat-Monitor/1.0" },
+        headers: {
+          "User-Agent": "UpStat-Monitor/1.0",
+          ...(monitor.request_headers || {}),
+        },
+        body: ["POST", "PUT", "PATCH"].includes(monitor.http_method)
+          ? monitor.request_body
+          : undefined,
       });
 
       clearTimeout(timeout);

@@ -17,6 +17,9 @@ async function checkMonitor(monitor: {
   keyword: string;
   monitor_type: string;
   tcp_port: number | null;
+  http_method: string | null;
+  request_body: string | null;
+  request_headers: Record<string, string> | null;
 }) {
   const start = Date.now();
   let pingStatus: "up" | "down" | "timeout" = "down";
@@ -34,9 +37,15 @@ async function checkMonitor(monitor: {
       const timeout = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(monitor.url, {
-        method: "GET",
+        method: monitor.http_method || "GET",
         signal: controller.signal,
-        headers: { "User-Agent": "UpStat-Monitor/1.0" },
+        headers: {
+          "User-Agent": "UpStat-Monitor/1.0",
+          ...(monitor.request_headers || {}),
+        },
+        body: ["POST", "PUT", "PATCH"].includes(monitor.http_method || "GET")
+          ? (monitor.request_body ?? undefined)
+          : undefined,
       });
 
       clearTimeout(timeout);
@@ -134,7 +143,8 @@ export function startPingJob() {
   cron.schedule("* * * * *", async () => {
     try {
       const { rows: monitors } = await db.query(`
-        SELECT m.id, m.url, m.status, m.user_id, m.interval_minutes, m.keyword, m.monitor_type, m.tcp_port
+        SELECT m.id, m.url, m.status, m.user_id, m.interval_minutes, m.keyword, 
+         m.monitor_type, m.tcp_port, m.http_method, m.request_body, m.request_headers
         FROM monitors m
         WHERE m.is_active = true
         AND (
