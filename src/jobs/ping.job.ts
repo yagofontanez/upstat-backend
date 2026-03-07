@@ -7,11 +7,13 @@ import {
 import { sendPushNotification } from "../services/push.service";
 import { checkTCP } from "../services/tcp.service";
 import { sendSlackAlert } from "../services/slack.service";
+import { sendWhatAppDown, sendWhatsAppUp } from "../services/whatsapp.service";
 
 async function checkMonitor(monitor: {
   id: string;
   url: string;
   status: string;
+  name: string;
   user_id: string;
   interval_minutes: number;
   keyword: string;
@@ -89,6 +91,21 @@ async function checkMonitor(monitor: {
     const notif = notifRows[0];
 
     if (newStatus === "down") {
+      const { rows: userRows } = await db.query(
+        `SELECT n.whatsapp_number FROM notifications n 
+         JOIN users u ON u.id = n.user_id
+         WHERE n.user_id = $1 AND n.whatsapp_enabled = true AND u.plan = 'pro'`,
+        [monitor.user_id],
+      );
+
+      if (userRows.length && userRows[0].whatsapp_number) {
+        await sendWhatAppDown(
+          userRows[0].whatsapp_number,
+          monitor.name || monitor.url,
+          monitor.url,
+        );
+      }
+
       await db.query(
         `INSERT INTO incidents (id, monitor_id) VALUES (uuid_generate_v4(), $1)`,
         [monitor.id],
@@ -110,6 +127,21 @@ async function checkMonitor(monitor: {
         );
       }
     } else {
+      const { rows: userRows } = await db.query(
+        `SELECT n.whatsapp_number FROM notifications n 
+         JOIN users u ON u.id = n.user_id
+         WHERE n.user_id = $1 AND n.whatsapp_enabled = true AND u.plan = 'pro'`,
+        [monitor.user_id],
+      );
+
+      if (userRows.length && userRows[0].whatsapp_number) {
+        await sendWhatsAppUp(
+          userRows[0].whatsapp_number,
+          monitor.name || monitor.url,
+          monitor.url,
+        );
+      }
+
       await db.query(
         `UPDATE incidents SET resolved_at = NOW(), duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000 WHERE monitor_id = $1 AND resolved_at IS NULL`,
         [monitor.id],
