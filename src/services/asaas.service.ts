@@ -64,7 +64,7 @@ export async function createSubscription(customerId: string) {
   return await asaasRequest("POST", "/subscriptions", {
     customer: customerId,
     billingType: "UNDEFINED",
-    value: 29.0,
+    value: 9.0,
     nextDueDate: new Date().toISOString().split("T")[0],
     cycle: "MONTHLY",
     description: "UpStat Pro — Plano mensal",
