@@ -4,13 +4,19 @@ import jwt from "jsonwebtoken";
 export interface JwtPayload {
   id: string;
   email: string;
-  plan: "free" | "pro";
+  plan?: string;
 }
 
 declare global {
   namespace Express {
+    interface User {
+      id: string;
+      email: string;
+      plan?: string;
+      name?: string;
+    }
     interface Request {
-      user?: JwtPayload;
+      user?: User;
     }
   }
 }
@@ -30,7 +36,7 @@ export function authMiddleware(
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
-    req.user = decoded;
+    req.user = decoded as Express.User;
     next();
   } catch {
     return res.status(401).json({ error: "Token inválido ou expirado" });
