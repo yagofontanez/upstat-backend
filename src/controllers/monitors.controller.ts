@@ -60,7 +60,7 @@ export async function createMonitor(req: Request, res: Response) {
   const { name, url, keyword, monitor_type, tcp_port, sla_target } =
     result.data;
   const plan = req.user!.plan;
-  const limit = PLAN_LIMITS[plan].monitors;
+  const limit = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS].monitors;
 
   try {
     const { rows: existing } = await db.query(
@@ -74,7 +74,7 @@ export async function createMonitor(req: Request, res: Response) {
       });
     }
 
-    const interval = PLAN_LIMITS[plan].interval;
+    const interval = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS].interval;
 
     const { rows } = await db.query(
       `INSERT INTO monitors (id, user_id, name, url, interval_minutes, keyword, monitor_type, tcp_port, sla_target)
@@ -138,7 +138,7 @@ export async function deleteMonitor(req: Request, res: Response) {
 
 export async function getMonitorPings(req: Request, res: Response) {
   const plan = req.user!.plan;
-  const days = PLAN_LIMITS[plan].history_days;
+  const days = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS].history_days;
 
   try {
     const { rows: monitorRows } = await db.query(
