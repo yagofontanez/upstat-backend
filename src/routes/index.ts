@@ -43,6 +43,15 @@ import {
   getServices,
   removeDependency,
 } from "../controllers/dependency.controller";
+import {
+  createSyntheticMonitor,
+  deleteSyntheticMonitor,
+  getSyntheticMonitor,
+  getSyntheticMonitors,
+  runSyntheticNow,
+} from "../controllers/synthetic.controller";
+import passport from "../config/passport";
+import { oauthCallback } from "../controllers/auth.oauth.controller";
 
 const router = Router();
 
@@ -98,6 +107,52 @@ router.get("/dependencies/services", authMiddleware, getServices);
 router.get("/dependencies/my", authMiddleware, getMyDependencies);
 router.post("/dependencies/:serviceId", authMiddleware, addDependency);
 router.delete("/dependencies/:serviceId", authMiddleware, removeDependency);
+
+// Synthetic
+router.get("/synthetic", authMiddleware, getSyntheticMonitors);
+router.get("/synthetic/:id", authMiddleware, getSyntheticMonitor);
+router.post("/synthetic", authMiddleware, createSyntheticMonitor);
+router.delete("/synthetic/:id", authMiddleware, deleteSyntheticMonitor);
+router.post("/synthetic/:id/run", authMiddleware, runSyntheticNow);
+
+// Google
+router.get(
+  "/auth/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    session: false,
+  }),
+);
+router.get(
+  "/auth/google/callback",
+  passport.authenticate("google", {
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth`,
+    session: false,
+  }),
+  oauthCallback,
+);
+
+// Github
+router.get(
+  "/auth/github",
+  (req, res, next) => {
+    console.log("iniciando github oauth");
+    next();
+  },
+  passport.authenticate("github", { scope: ["user:email"], session: false }),
+);
+router.get(
+  "/auth/github/callback",
+  (req, res, next) => {
+    console.log("github callback recebido");
+    next();
+  },
+  passport.authenticate("github", {
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth`,
+    session: false,
+  }),
+  oauthCallback,
+);
 
 // Widget - Public route
 router.get("/widget/:slug", async (req, res) => {

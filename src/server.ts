@@ -1,14 +1,17 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import { db } from "./config/database";
+import passport from "./config/passport";
 import routes from "./routes";
+import "./config/passport";
+import { db } from "./config/database";
 import { startPingJob } from "./jobs/ping.job";
 import { startWeeklyReportJob } from "./jobs/weekly-report.job";
 import { startSSLCheckJob } from "./jobs/ssl-check.job";
 import { startDNSCheckJob } from "./jobs/dns-check.job";
 import { startSLAReportJob } from "./jobs/sla-report.job";
 import { startDependencyJob } from "./jobs/dependency.job";
+import { startSyntheticJob } from "./jobs/synthetic.job";
 
 dotenv.config();
 
@@ -30,6 +33,11 @@ app.get("/health", (_, res) =>
 
 app.use("/api", routes);
 
+app.use(passport.initialize());
+
+console.log("GITHUB_CLIENT_ID", process.env.GITHUB_CLIENT_ID);
+console.log("APP_URL", process.env.APP_URL);
+
 async function bootstrap() {
   try {
     await db.query("SELECT 1");
@@ -41,6 +49,7 @@ async function bootstrap() {
     startDNSCheckJob();
     startSLAReportJob();
     startDependencyJob();
+    startSyntheticJob();
 
     app.listen(PORT, () => {
       console.log(`UpStat API running on http://localhost:${PORT}`);
