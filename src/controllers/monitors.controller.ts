@@ -76,7 +76,7 @@ export async function createMonitor(req: Request, res: Response) {
 
     const interval = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS].interval;
 
-    const { rows } = await db.query(
+    const { rows: monitorRows } = await db.query(
       `INSERT INTO monitors (id, user_id, name, url, interval_minutes, keyword, monitor_type, tcp_port, sla_target)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
@@ -93,7 +93,30 @@ export async function createMonitor(req: Request, res: Response) {
       ],
     );
 
-    return res.status(201).json({ monitor: rows[0] });
+    const newMonitor = monitorRows[0];
+
+    const { rows: pageRows } = await db.query(
+      `SELECT p.id FROM pages p
+       JOIN monitors m ON m.user_id = p.user_id
+       WHERE m.id = $1`,
+      [newMonitor.id],
+    );
+
+    if (pageRows.length) {
+      const { rows: existingMonitors } = await db.query(
+        `SELECT COUNT(*) FROM page_monitors WHERE page_id = $1`,
+        [pageRows[0].id],
+      );
+
+      if (parseInt(existingMonitors[0].count) === 0) {
+        await db.query(
+          `INSERT INTO page_monitors (page_id, monitor_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [pageRows[0].id, newMonitor.id],
+        );
+      }
+    }
+
+    return res.status(201).json({ monitor: newMonitor[0] });
   } catch (err) {
     console.error("Create monitor error:", err);
     return res.status(500).json({ error: "Erro interno do servidor" });
