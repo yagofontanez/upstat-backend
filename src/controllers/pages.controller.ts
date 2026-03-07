@@ -81,6 +81,7 @@ export async function getPublicPage(req: Request, res: Response) {
         title: page.title,
         description: page.description,
         logo_url: page.logo_url,
+        logo_base64: page.logo_base64,
         slug: page.slug,
       },
       overall_status: overallStatus,
@@ -106,6 +107,7 @@ const updatePageSchema = z.object({
     )
     .optional(),
   monitor_ids: z.array(z.string().uuid()).optional(),
+  logo_base64: z.string().nullable().optional(),
 });
 
 export async function updatePage(req: Request, res: Response) {
@@ -114,7 +116,7 @@ export async function updatePage(req: Request, res: Response) {
     return res.status(400).json({ error: result.error.issues[0].message });
   }
 
-  const { title, description, slug, monitor_ids } = result.data;
+  const { title, description, slug, monitor_ids, logo_base64 } = result.data;
   const userId = req.user!.id;
 
   try {
@@ -150,9 +152,10 @@ export async function updatePage(req: Request, res: Response) {
         title = COALESCE($1, title),
         description = COALESCE($2, description),
         slug = COALESCE($3, slug),
+        logo_base64 = CASE WHEN $4::text IS NULL AND $5 THEN NULL ELSE COALESCE($4, logo_base64) END,
         updated_at = NOW()
-       WHERE id = $4`,
-      [title, description, slug, page.id],
+      WHERE id = $6`,
+      [title, description, slug, logo_base64, logo_base64 === null, page.id],
     );
 
     if (monitor_ids !== undefined) {
