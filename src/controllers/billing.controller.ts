@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../config/database";
 import {
+  cancelSubscription,
   createOrFindCustomer,
   createSubscription,
   getSubscriptionPaymentLink,
@@ -67,6 +68,45 @@ export async function upgrade(req: Request, res: Response) {
     return res
       .status(500)
       .json({ error: err.message || "Erro ao processar upgrade" });
+  }
+}
+
+export async function cancel(req: Request, res: Response) {
+  const userId = req.user!.id;
+
+  try {
+    const { rows } = await db.query(
+      "SELECT asaas_subscription_id FROM users WHERE id = $1",
+      [userId],
+    );
+
+    const subscriptionId = rows[0]?.asaas_subscription_id;
+
+    if (subscriptionId) {
+      await cancelSubscription(subscriptionId);
+    }
+
+    await db.query(
+      "UPDATE users SET plan = 'free', asaas_subscription_id = NULL WHERE id = $1",
+      [userId],
+    );
+
+    await db.query(
+      `DELETE FROM monitors
+       WHERE user_id = $1
+       AND id NOT IN (
+        SELECT id FROM monitors
+        WHERE user_id = $1
+        ORDER BY created_at ASC
+        LIMIT 10
+   )`,
+      [userId],
+    );
+
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("Cancel plan error:", e);
+    return res.status(500).json({ error: "Erro ao cancelar plano" });
   }
 }
 

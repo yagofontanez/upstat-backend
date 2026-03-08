@@ -30,7 +30,7 @@ import {
   updateNotifications,
   updateSlackSettings,
 } from "../controllers/settings.controller";
-import { upgrade, webhook } from "../controllers/billing.controller";
+import { cancel, upgrade, webhook } from "../controllers/billing.controller";
 import { getBadge } from "../controllers/badge.controller";
 import {
   getVapidKey,
@@ -95,6 +95,7 @@ router.put("/settings/slack", authMiddleware, updateSlackSettings);
 // Billing
 router.post("/billing/upgrade", authMiddleware, upgrade);
 router.post("/billing/webhook", webhook);
+router.post("/billing/cancel", authMiddleware, cancel);
 
 // Push Notifications
 router.get("/push/vapid-key", authMiddleware, getVapidKey);
