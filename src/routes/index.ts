@@ -53,6 +53,7 @@ import {
 } from "../controllers/synthetic.controller";
 import passport from "../config/passport";
 import { oauthCallback } from "../controllers/auth.oauth.controller";
+import { deleteAccount } from "../controllers/account.controller";
 
 const router = Router();
 
@@ -117,6 +118,9 @@ router.get("/synthetic/:id", authMiddleware, getSyntheticMonitor);
 router.post("/synthetic", authMiddleware, createSyntheticMonitor);
 router.delete("/synthetic/:id", authMiddleware, deleteSyntheticMonitor);
 router.post("/synthetic/:id/run", authMiddleware, runSyntheticNow);
+
+// Account
+router.delete("/account", authMiddleware, deleteAccount);
 
 // Google
 router.get(
